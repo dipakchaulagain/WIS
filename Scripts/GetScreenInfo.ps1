@@ -50,30 +50,41 @@ function Get-FullManufacturerName {
 $monitorIDs = Get-WmiObject -Namespace root\wmi -Class WmiMonitorID
 
 foreach ($id in $monitorIDs) {
-    Write-Host $id.InstanceName
     $manufacturerCode = Convert-ByteArrayToString $id.ManufacturerName
     $manufacturerFull = Get-FullManufacturerName $manufacturerCode
     $productCode = Convert-ByteArrayToString $id.ProductCodeID
     $serialNumber = Convert-ByteArrayToString $id.SerialNumberID
-    $friendlyName = Convert-ByteArrayToString $id.UserFriendlyName
-    $year = $id.YearOfManufacture
-
-    # Get EDID from WmiMonitorDescriptorMethods
-    $edidObj = Get-WmiObject -Namespace root\wmi -Class WmiMonitorDescriptorMethods | Where-Object { $_.InstanceName -eq $id.InstanceName }
-
-    $nativeResolution = "Unknown"
-    if ($edidObj) {
-        $edidResult = $edidObj.WmiGetMonitorRawEEdidV1Block(0)
-        if ($edidResult -and $edidResult.Edid) {
-            $nativeResolution = Get-NativeResolutionFromEDID $edidResult.Edid
-        }
+    if ($id.UserFriendlyNameLength -gt 0) {
+        $friendlyName = Convert-ByteArrayToString $id.UserFriendlyName
+    } else {
+        $friendlyName = "Unknown"
     }
+    $year = $id.YearOfManufacture
+    $displayParams = Get-WmiObject -Namespace root\wmi -Class WmiMonitorBasicDisplayParams | Where-Object { $_.InstanceName -eq $id.InstanceName }
+    # Extract screen size in cm
+    $widthCm = $displayParams.MaxHorizontalImageSize
+    $heightCm = $displayParams.MaxVerticalImageSize
 
-    Write-Output "Monitor:       $friendlyName"
-    Write-Output "Manufacturer:  $manufacturerFull"
-    Write-Output "Product Code:  $productCode"
-    Write-Output "Serial Number: $serialNumber"
-    Write-Output "Native Resolution: $nativeResolution"
-    Write-Output "Year of Manufacture: $year"
-    Write-Output ""
+    # Convert cm to inches (1 inch = 2.54 cm)
+    $widthInch = [math]::Round($widthCm / 2.54, 2)
+    $heightInch = [math]::Round($heightCm / 2.54, 2)
+
+    # Calculate diagonal size
+    $diagonalInch = [math]::Round(([math]::Sqrt(($widthInch * $widthInch) + ($heightInch * $heightInch))), 2)
+
+    # Get screen resolution using .NET (primary screen)
+    Add-Type -AssemblyName System.Windows.Forms
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+    $screenWidth = $screen.Bounds.Width
+    $screenHeight = $screen.Bounds.Height
+    
+    Write-Output "======================================================"
+    Write-Output "Monitor              : $friendlyName"
+    Write-Output "Manufacturer         : $manufacturerFull"
+    Write-Output "Product Code         : $productCode"
+    Write-Output "Serial Number        : $serialNumber"
+    Write-Output "Screen Size          : $diagonalInch inches"
+    Write-Output "Native Resolution    : ${screenWidth} x ${screenHeight}"
+    Write-Output "Year of Manufacture  : $year"
+    Write-Output "======================================================="
 }
