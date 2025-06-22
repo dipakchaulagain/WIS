@@ -1,27 +1,3 @@
-function Get-NativeResolutionFromEDID {
-    param([byte[]]$edid)
-
-    if ($edid.Length -lt 72) {
-        return "Unknown"
-    }
-
-    $dtd = $edid[54..71]
-
-    $hActiveLow = $dtd[2]
-    $hActiveHigh = ($dtd[4] -band 0xF0) -shr 4
-    $hActive = ($hActiveHigh * 256) + $hActiveLow
-
-    $vActiveLow = $dtd[5]
-    $vActiveHigh = $dtd[7] -band 0x0F
-    $vActive = ($vActiveHigh * 256) + $vActiveLow
-
-    if ($hActive -gt 0 -and $vActive -gt 0) {
-        return "$hActive x $vActive"
-    } else {
-        return "Unknown"
-    }
-}
-
 function Convert-ByteArrayToString {
     param([byte[]]$bytes)
     $chars = $bytes | ForEach-Object { [char]$_ }
@@ -71,7 +47,7 @@ foreach ($id in $monitorIDs) {
 
     # Calculate diagonal size
     $diagonalInch = [math]::Round(([math]::Sqrt(($widthInch * $widthInch) + ($heightInch * $heightInch))), 2)
-
+    
     # Get screen resolution using .NET (primary screen)
     Add-Type -AssemblyName System.Windows.Forms
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen

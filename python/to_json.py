@@ -37,8 +37,8 @@ def save_to_json(data, output_path):
 
 def main():
     # Paths (updated to match error message)
-    ps1_path = r"D:\Projects\Windows inventory\wis\Scripts\GetSystemInfoJson.ps1"
-    output_path = r"D:\Projects\Windows inventory\wis\system_info.json"
+    ps1_path = r"F:\Personal\WIS\Scripts\GetSystemInfoJson.ps1"
+    output_path = r"F:\Personal\WIS\system_info.json"
 
     # Verify PowerShell script exists
     if not os.path.exists(ps1_path):

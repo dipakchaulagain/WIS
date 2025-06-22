@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/heroicons@2.1.5/dist/heroicons.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .card {
+            transition: all 0.2s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+        }
+        
+        .status-up {
+            background-color: #ECFDF5;
+            color: #059669;
+        }
+        
+        .status-disconnected {
+            background-color: #FEF2F2;
+            color: #DC2626;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #E5E7EB;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            background-color: #4F46E5;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                    </svg>
+                    <h1 class="text-xl font-bold text-gray-900">Asset Manager</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <span class="text-indigo-600 text-sm font-medium">TR</span>
+                        </div>
+                        <span id="ownerNameDisplay" class="text-sm font-medium text-gray-700"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Navigation -->
+            <nav class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Asset Inventory</h2>
+                    <p id="timestampDisplay" class="text-sm text-gray-500">Last updated: </p>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="listViewBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                        <span>Asset List</span>
+                    </button>
+                    <button id="detailViewBtn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition flex items-center space-x-2 hidden">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        <span>Back to List</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Asset List View -->
+            <div id="assetList">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <ul id="assetItems" class="divide-y divide-gray-200">
+                        <!-- Asset item will be inserted here -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Asset Detail View -->
+            <div id="assetDetail" class="hidden">
+                <!-- Content will be dynamically inserted here -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const assetData = {
+            "NetworkInterfaces": [
+                {
+                    "Vendor": "Unknown Vendor",
+                    "Name": "Local Area Connection",
+                    "IPv6": "fe80::6b80:b020:ea84:dba4%21",
+                    "MAC": "00-FF-CB-12-5A-3E",
+                    "IPv4": "169.254.138.193",
+                    "Status": "Disconnected"
+                },
+                {
+                    "Vendor": "Unknown Vendor",
+                    "Name": "vEthernet (vm switch)",
+                    "IPv6": "fe80::b35f:2d04:bb6f:8dda%20",
+                    "MAC": "00-15-5D-35-7E-05",
+                    "IPv4": "169.254.139.4",
+                    "Status": "Up"
+                },
+                {
+                    "Vendor": "Unknown Vendor",
+                    "Name": "Ethernet",
+                    "IPv6": "fe80::3318:924c:acfb:de25%14",
+                    "MAC": "54-EE-75-D3-33-DF",
+                    "IPv4": "169.254.128.113",
+                    "Status": "Disconnected"
+                },
+                {
+                    "Vendor": "Unknown Vendor",
+                    "Name": "Wi-Fi",
+                    "IPv6": "fe80::94bd:9fa9:d137:2fbf%11",
+                    "MAC": "C8-3D-D4-AB-CE-9B",
+                    "IPv4": "192.168.52.116",
+                    "Status": "Up"
+                },
+                {
+                    "Vendor": "Unknown Vendor",
+                    "Name": "vEthernet (Default Switch)",
+                    "IPv6": "fe80::4a37:6943:4d14:99ad%59",
+                    "MAC": "00-15-5D-E0-E0-5A",
+                    "IPv4": "172.21.112.1",
+                    "Status": "Up"
+                }
+            ],
+            "AssetInformation": {
+                "Version": "10.0.19045",
+                "Manufacturer": "LENOVO",
+                "Model": "80TL",
+                "AssetType": "Laptop",
+                "Domain": "WORKGROUP",
+                "Processor": "Intel(R) Core(TM) i3-6006U CPU @ 2.00GHz (2 cores / 4 threads @ 1.99 GHz)",
+                "Antivirus": "Windows Defender (Enabled)",
+                "Audio": [
+                    "Realtek High Definition Audio",
+                    "Intel(R) Display Audio"
+                ],
+                "Build": "19045",
+                "OS": "Microsoft Windows 10 Pro",
+                "Graphics": "Intel(R) HD Graphics 520",
+                "Firewall": "Domain: True, Private: True, Public: True",
+                "SerialNumber": "R90NGHWU",
+                "Hostname": "DESKTOP-D8DRU12",
+                "Motherboard": "LENOVO LNVNB161216",
+                "LastUser": "DESKTOP-D8DRU12\\xewang"
+            },
+            "OwnerName": "tsewangrajlama",
+            "MemoryInformation": {
+                "Modules": [
+                    {
+                        "RAMType": "DDR4",
+                        "SpeedMHz": 2133,
+                        "Manufacturer": "Samsung",
+                        "CapacityGB": 4,
+                        "PartNumber": "M471A5244BB0-CPB",
+                        "ModuleType": "SODIMM"
+                    },
+                    {
+                        "RAMType": "DDR4",
+                        "SpeedMHz": 2133,
+                        "Manufacturer": "SK Hynix",
+                        "CapacityGB": 8,
+                        "PartNumber": "HMAA1GS6CJR6N-XN",
+                        "ModuleType": "SODIMM"
+                    }
+                ],
+                "TotalMemoryGB": 12
+            },
+            "Timestamp": "2025-06-22 17:11:26",
+            "BatteryInformation": {
+                "Manufacturer": "Unknown",
+                "BatteryWearPercent": 72.66,
+                "Model": "L15L4A02",
+                "CurrentState": "Charging",
+                "Percent": "Unknown",
+                "ChargeableCapacityWh": 8.75,
+                "EtaToFullEmpty": "71582788 minutes",
+                "DesignedCapacityWh": 32.01
+            },
+            "LogicalDrives": [
+                {
+                    "FileSystem": "NTFS",
+                    "UsedSpaceGB": 178.7,
+                    "VolumeLabel": "Drive",
+                    "DriveLetter": "C",
+                    "FreeSpaceGB": 59.14,
+                    "TotalSizeGB": 237.84,
+                    "UsedPercent": 75.13
+                }
+            ],
+            "MonitorInformation": [
+                {
+                    "Manufacturer": "AUO",
+                    "ProductCode": "71EC",
+                    "ScreenSizeInch": 15.34,
+                    "YearOfManufacture": 2015,
+                    "NativeResolution": "1366 x 768",
+                    "SerialNumber": "0",
+                    "FriendlyName": "Unknown"
+                },
+                {
+                    "Manufacturer": "Lenovo",
+                    "ProductCode": "61E0",
+                    "ScreenSizeInch": 18.51,
+                    "YearOfManufacture": 2022,
+                    "NativeResolution": "1366 x 768",
+                    "SerialNumber": "V909PHK6",
+                    "FriendlyName": "D19-10"
+                }
+            ],
+            "PhysicalDisks": [
+                {
+                    "SizeGB": 238.47,
+                    "MediaType": "SSD",
+                    "Model": "Lexar SSD NS100 256GB",
+                    "DriveLetters": "",
+                    "BusType": "SATA"
+                }
+            ]
+        };
+
+        const listViewBtn = document.getElementById('listViewBtn');
+        const detailViewBtn = document.getElementById('detailViewBtn');
+        const assetList = document.getElementById('assetList');
+        const assetDetail = document.getElementById('assetDetail');
+        const assetItems = document.getElementById('assetItems');
+        const ownerNameDisplay = document.getElementById('ownerNameDisplay');
+        const timestampDisplay = document.getElementById('timestampDisplay');
+
+        // Initialize display elements
+        ownerNameDisplay.textContent = assetData.OwnerName;
+        timestampDisplay.textContent = `Last updated: ${assetData.Timestamp}`;
+
+        // Display asset list
+        function showAssetList() {
+            assetList.classList.remove('hidden');
+            assetDetail.classList.add('hidden');
+            listViewBtn.classList.add('hidden');
+            detailViewBtn.classList.add('hidden');
+
+            // Display single asset in list format
+            const item = document.createElement('li');
+            item.className = 'p-6 hover:bg-gray-50 cursor-pointer';
+            item.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-3 bg-indigo-100 rounded-lg">
+                            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">${assetData.AssetInformation.Hostname}</h3>
+                            <p class="text-sm text-gray-500">${assetData.AssetInformation.Manufacturer} ${assetData.AssetInformation.Model} • ${assetData.AssetInformation.OS}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-6">
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Owner</p>
+                            <p class="font-medium">${assetData.OwnerName}</p>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            `;
+            item.addEventListener('click', showAssetDetails);
+            assetItems.innerHTML = '';
+            assetItems.appendChild(item);
+        }
+
+        // Display asset details
+        function showAssetDetails() {
+            assetList.classList.add('hidden');
+            assetDetail.classList.remove('hidden');
+            listViewBtn.classList.remove('hidden');
+            detailViewBtn.classList.remove('hidden');
+
+            assetDetail.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Asset Summary Card -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 card">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                            <div class="flex items-start space-x-4">
+                                <div class="p-3 bg-indigo-100 rounded-lg">
+                                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold text-gray-900">${assetData.AssetInformation.Hostname}</h2>
+                                    <p class="text-gray-600">${assetData.AssetInformation.Manufacturer} ${assetData.AssetInformation.Model}</p>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">${assetData.AssetInformation.AssetType}</span>
+                                        <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">${assetData.AssetInformation.OS}</span>
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">Serial: ${assetData.AssetInformation.SerialNumber}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 md:mt-0">
+                                <div class="text-right">
+                                    <p class="text-sm text-gray-500">Owner</p>
+                                    <p class="font-medium text-gray-900">${assetData.OwnerName}</p>
+                                </div>
+                                <div class="mt-2 text-right">
+                                    <p class="text-sm text-gray-500">Last User</p>
+                                    <p class="font-medium text-gray-900">${assetData.AssetInformation.LastUser}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Sections -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Left Column -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <!-- System Information -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                                    </svg>
+                                    System Information
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-sm text-gray-500">Operating System</p>
+                                        <p class="font-medium">${assetData.AssetInformation.OS} ${assetData.AssetInformation.Version}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Build Number</p>
+                                        <p class="font-medium">${assetData.AssetInformation.Build}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Processor</p>
+                                        <p class="font-medium">${assetData.AssetInformation.Processor}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Graphics</p>
+                                        <p class="font-medium">${assetData.AssetInformation.Graphics}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Motherboard</p>
+                                        <p class="font-medium">${assetData.AssetInformation.Motherboard}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Security</p>
+                                        <p class="font-medium">${assetData.AssetInformation.Antivirus}</p>
+                                        <p class="font-medium">Firewall: ${assetData.AssetInformation.Firewall}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Storage Information -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"></path>
+                                    </svg>
+                                    Storage Information
+                                </h3>
+                                
+                                <h4 class="font-medium text-gray-700 mt-4 mb-2">Physical Disks</h4>
+                                <div class="space-y-4">
+                                    ${assetData.PhysicalDisks.map(d => `
+                                    <div class="border border-gray-200 rounded-lg p-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"></path>
+                                                </svg>
+                                                <span class="font-medium">${d.Model}</span>
+                                            </div>
+                                            <span class="text-sm text-gray-500">${d.SizeGB} GB</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm text-gray-500">
+                                            <span>${d.MediaType}</span>
+                                            <span>${d.BusType}</span>
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <h4 class="font-medium text-gray-700 mt-6 mb-2">Logical Drives</h4>
+                                <div class="space-y-4">
+                                    ${assetData.LogicalDrives.map(d => `
+                                    <div class="border border-gray-200 rounded-lg p-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+                                                </svg>
+                                                <span class="font-medium">Drive ${d.DriveLetter}: ${d.VolumeLabel}</span>
+                                            </div>
+                                            <span class="text-sm font-medium">${d.UsedSpaceGB} GB / ${d.TotalSizeGB} GB</span>
+                                        </div>
+                                        <div class="progress-bar mt-2">
+                                            <div class="progress-fill" style="width: ${d.UsedPercent}%"></div>
+                                        </div>
+                                        <div class="flex justify-between text-sm text-gray-500 mt-2">
+                                            <span>${d.FileSystem}</span>
+                                            <span>${d.FreeSpaceGB} GB free (${100 - d.UsedPercent}%)</span>
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Network Interfaces -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                    </svg>
+                                    Network Interfaces
+                                </h3>
+                                <div class="space-y-4">
+                                    ${assetData.NetworkInterfaces.map(ni => `
+                                    <div class="border border-gray-200 rounded-lg p-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                                <span class="font-medium">${ni.Name}</span>
+                                            </div>
+                                            <span class="status-badge ${ni.Status === 'Up' ? 'status-up' : 'status-disconnected'}">${ni.Status}</span>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                            <div>
+                                                <p class="text-sm text-gray-500">IPv4 Address</p>
+                                                <p class="font-medium">${ni.IPv4}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm text-gray-500">MAC Address</p>
+                                                <p class="font-medium">${ni.MAC}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="space-y-6">
+                            <!-- Memory Information -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                    </svg>
+                                    Memory
+                                </h3>
+                                <div class="mb-4">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-sm font-medium text-gray-700">Total Memory</span>
+                                        <span class="text-sm font-medium">${assetData.MemoryInformation.TotalMemoryGB} GB</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-indigo-600 h-2.5 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                </div>
+                                
+                                <h4 class="font-medium text-gray-700 mt-4 mb-2">Modules</h4>
+                                <div class="space-y-3">
+                                    ${assetData.MemoryInformation.Modules.map(m => `
+                                    <div class="border border-gray-200 rounded-lg p-3">
+                                        <div class="flex justify-between items-center">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                                </svg>
+                                                <span class="font-medium">${m.Manufacturer}</span>
+                                            </div>
+                                            <span class="text-sm font-medium">${m.CapacityGB} GB</span>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                            <span>${m.RAMType} @ ${m.SpeedMHz} MHz</span>
+                                            <span>${m.PartNumber}</span>
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Battery Information -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                    </svg>
+                                    Battery
+                                </h3>
+                                <div class="space-y-3">
+                                    <div>
+                                        <p class="text-sm text-gray-500">Model</p>
+                                        <p class="font-medium">${assetData.BatteryInformation.Model}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Status</p>
+                                        <p class="font-medium">${assetData.BatteryInformation.CurrentState}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Health</p>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-red-600 h-2.5 rounded-full" style="width: ${assetData.BatteryInformation.BatteryWearPercent}%"></div>
+                                            </div>
+                                            <span class="text-sm font-medium">${assetData.BatteryInformation.BatteryWearPercent}% wear</span>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p class="text-sm text-gray-500">Designed Capacity</p>
+                                            <p class="font-medium">${assetData.BatteryInformation.DesignedCapacityWh} Wh</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Current Capacity</p>
+                                            <p class="font-medium">${assetData.BatteryInformation.ChargeableCapacityWh} Wh</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Monitors -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                                    </svg>
+                                    Monitors
+                                </h3>
+                                <div class="space-y-4">
+                                    ${assetData.MonitorInformation.map(m => `
+                                    <div class="border border-gray-200 rounded-lg p-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                                                </svg>
+                                                <span class="font-medium">${m.Manufacturer}</span>
+                                            </div>
+                                            <span class="text-sm text-gray-500">${m.ScreenSizeInch}"</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 text-sm">
+                                            <div>
+                                                <p class="text-gray-500">Resolution</p>
+                                                <p>${m.NativeResolution}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-500">Year</p>
+                                                <p>${m.YearOfManufacture}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-500">Model</p>
+                                                <p>${m.FriendlyName}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-500">Serial</p>
+                                                <p>${m.SerialNumber}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Navigation event listeners
+        listViewBtn.addEventListener('click', showAssetList);
+        detailViewBtn.addEventListener('click', showAssetList);
+
+        // Initial load
+        showAssetList();
+    </script>
+</body>
+</html>
