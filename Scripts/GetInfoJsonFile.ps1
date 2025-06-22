@@ -131,8 +131,10 @@ foreach ($disk in $physicalDisks) {
         BusType = $disk.BusType
         SizeGB = [math]::Round($disk.Size / 1GB, 2)
         DriveLetters = ($volumes | Where-Object { $_.DriveLetter } | ForEach-Object { $_.DriveLetter }) -join ", "
+        Status = $disk.HealthStatus  
     }
 }
+
 
 # === Logical Drives ===
 $allVolumes = Get-Volume
@@ -179,42 +181,70 @@ foreach ($adapter in $adapters) {
     }
 }
 
-# === Battery Information (only if Laptop) ===
-if ($assetType -eq "Laptop") {
-    $battery = Get-WmiObject -Class Win32_Battery -ErrorAction SilentlyContinue
-    $batteryStatic = Get-WmiObject -Namespace "root\wmi" -Class BatteryStaticData -ErrorAction SilentlyContinue
-    $batteryStatus = Get-WmiObject -Namespace "root\wmi" -Class BatteryStatus -ErrorAction SilentlyContinue
-
-    $batteryInfo = @{
+function Get-BatterySummary {
+    $fields = @{
         Model = "Unknown"
         Manufacturer = "Unknown"
+        EstimatedChargeRemainingPercent = "Unknown"
+        BatteryHealthPercent = "Unknown"
         DesignedCapacityWh = "Unknown"
-        ChargeableCapacityWh = "Unknown"
-        BatteryWearPercent = "Unknown"
-        CurrentState = "Unknown"
-        EtaToFullEmpty = "Unknown"
-        Percent = "Unknown"
+        FullChargedCapacityWh = "Unknown"
+        CycleCount = "Unknown"
     }
 
-    if ($battery -and $batteryStatic -and $batteryStatus) {
-        $batteryInfo.Model = if ($battery.Name) { $battery.Name } else { "Unknown" }
-        $batteryInfo.Manufacturer = if ($battery.Manufacturer) { $battery.Manufacturer } else { "Unknown" }
-        $batteryInfo.DesignedCapacityWh = [math]::Round($batteryStatic.DesignedCapacity / 1000, 2)
-        $batteryInfo.ChargeableCapacityWh = [math]::Round(($batteryStatus.RemainingCapacity + $batteryStatus.ChargeRate) / 1000, 2)
-        $batteryInfo.BatteryWearPercent = if ($batteryStatic.DesignedCapacity -ne 0) {
-            [math]::Round((1 - (($batteryStatus.RemainingCapacity + $batteryStatus.ChargeRate) / $batteryStatic.DesignedCapacity)) * 100, 2)
-        } else { "Unknown" }
-        $batteryInfo.CurrentState = switch ($battery.BatteryStatus) {
-            1 { "Discharging" }
-            2 { "Charging" }
-            3 { "Fully Charged" }
-            default { "Unknown" }
+    try {
+        $cimNamespace = "ROOT\cimv2"
+        $wmiNamespace = "ROOT\WMI"
+
+        # Try to get Win32_Battery
+        $battery = Get-CimInstance -Namespace $cimNamespace -ClassName Win32_Battery -ErrorAction SilentlyContinue
+        if (-not $battery) { $battery = Get-WmiObject -Namespace $cimNamespace -Class Win32_Battery -ErrorAction SilentlyContinue }
+
+        # Battery cycle count, full charged capacity, and static data
+        $batteryCycle = Get-CimInstance -Namespace $wmiNamespace -ClassName BatteryCycleCount -ErrorAction SilentlyContinue
+        if (-not $batteryCycle) { $batteryCycle = Get-WmiObject -Namespace $wmiNamespace -Class BatteryCycleCount -ErrorAction SilentlyContinue }
+
+        $batteryFullCharged = Get-CimInstance -Namespace $wmiNamespace -ClassName BatteryFullChargedCapacity -ErrorAction SilentlyContinue
+        if (-not $batteryFullCharged) { $batteryFullCharged = Get-WmiObject -Namespace $wmiNamespace -Class BatteryFullChargedCapacity -ErrorAction SilentlyContinue }
+
+        $batteryStatic = Get-CimInstance -Namespace $wmiNamespace -ClassName BatteryStaticData -ErrorAction SilentlyContinue
+        if (-not $batteryStatic) { $batteryStatic = Get-WmiObject -Namespace $wmiNamespace -Class BatteryStaticData -ErrorAction SilentlyContinue }
+
+        # Assign values safely
+        if ($battery) {
+            $fields.Model = $battery.Name
+            $fields.Manufacturer = $battery.Manufacturer
+            $fields.EstimatedChargeRemainingPercent = $battery.EstimatedChargeRemaining
         }
-        $batteryInfo.EtaToFullEmpty = if ($battery.EstimatedRunTime -gt 0) { "$($battery.EstimatedRunTime) minutes" } else { "Calculating..." }
-        $batteryInfo.Percent = [math]::Round($batteryStatus.RemainingCapacity / $batteryStatus.FullChargeCapacity * 100, 2)
+        if ($batteryCycle) {
+            $fields.CycleCount = $batteryCycle.CycleCount
+        }
+        if ($batteryFullCharged) {
+            $fields.FullChargedCapacityWh = [math]::Round($batteryFullCharged.FullChargedCapacity / 1000, 2)
+        }
+        if ($batteryStatic) {
+            $fields.DesignedCapacityWh = [math]::Round($batteryStatic.DesignedCapacity / 1000, 2)
+            if (-not $fields.Manufacturer) { $fields.Manufacturer = $batteryStatic.ManufactureName }
+        }
+
+        # Calculate health percentage if possible
+        if (($fields.FullChargedCapacityWh -ne "Unknown") -and ($fields.DesignedCapacityWh -ne "Unknown") -and ($fields.DesignedCapacityWh -gt 0)) {
+            $fields.BatteryHealthPercent = [math]::Round(($fields.FullChargedCapacityWh / $fields.DesignedCapacityWh) * 100, 2)
+        }
     }
-    $SystemInfo.BatteryInformation = $batteryInfo
+    catch {
+        Write-Verbose "Error retrieving battery summary: $_"
+    }
+
+    return $fields
 }
+
+# Usage example in your main script:
+if ($assetType -eq "Laptop") {
+    $SystemInfo.BatteryInformation = Get-BatterySummary
+}
+
+
 
 # === Monitor Information ===
 function Convert-ByteArrayToString([byte[]]$bytes) {
@@ -293,11 +323,58 @@ if ($monitorIDs) {
     }
 }
 
+# === Installed Software ===
+function Get-InstalledSoftware {
+    $softwareList = @()
+    $machinePaths = @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+        "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+    )
+    foreach ($basePath in $machinePaths) {
+        if (Test-Path $basePath) {
+            Get-ChildItem -Path $basePath | ForEach-Object {
+                try {
+                    $props = Get-ItemProperty -Path $_.PSPath
+                    if ($props.DisplayName) {
+                        $softwareList += [PSCustomObject]@{
+                            Name        = $props.DisplayName
+                            Version     = $props.DisplayVersion
+                            Publisher   = $props.Publisher
+                            InstallDate = $props.InstallDate
+                            Scope       = "System-wide"
+                        }
+                    }
+                } catch {}
+            }
+        }
+    }
+    $userPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+    if (Test-Path $userPath) {
+        Get-ChildItem -Path $userPath | ForEach-Object {
+            try {
+                $props = Get-ItemProperty -Path $_.PSPath
+                if ($props.DisplayName) {
+                    $softwareList += [PSCustomObject]@{
+                        Name        = $props.DisplayName
+                        Version     = $props.DisplayVersion
+                        Publisher   = $props.Publisher
+                        InstallDate = $props.InstallDate
+                        Scope       = "User-only"
+                    }
+                }
+            } catch {}
+        }
+    }
+    return $softwareList
+}
+
+$SystemInfo.InstalledSoftware = Get-InstalledSoftware
+
 # Sanitize owner name for filename (remove invalid characters)
 $safeOwnerName = $ownerName -replace '[<>:"/\\|?*]', '_'
 
 # Define remote folder path
-$remotePath = "\\192.168.12.9\Assets\Records\"
+$remotePath = "D:\Projects\Windows inventory\wis\Records"
 
 # Output as JSON and save to remote folder
 $jsonOutput = $SystemInfo | ConvertTo-Json -Depth 5
