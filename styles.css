@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.card {
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+}
+
+.status-up {
+    background-color: #ECFDF5;
+    color: #059669;
+}
+
+.status-disconnected,
+.status-disabled {
+    background-color: #FEF2F2;
+    color: #DC2626;
+}
+
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    background-color: #E5E7EB;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background-color: #4F46E5;
+}
+
+/* Ensure SVG icons have consistent sizes */
+svg {
+    width: 1rem !important;
+    height: 1rem !important;
+}
+
+/* Override specific icon sizes where needed */
+header svg,
+#assetList svg,
+#assetDetail svg:not(.status-badge svg) {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+}
+
+/* Sync button hover effect */
+#syncDataBtn:hover {
+    transform: scale(1.05);
+}
